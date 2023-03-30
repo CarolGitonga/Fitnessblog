@@ -6,10 +6,16 @@ from django.views.generic import ListView
 from .forms import EmailPostForm, CommentForm
 from django.core.mail import send_mail
 from django.views.decorators.http import require_POST
+from taggit.models import Tag
+from django.db.models import Count
 
 # Create your views here.
-def post_list(request):#takes the request object as the only parameter.This parameter is required by all views.
+def post_list(request, tag_slug=None):#takes the request object as the only parameter.This parameter is required by all views.
     post_list = Post.published.all()#retrieve all posts with PUBLISHED status
+    tag = None
+    if tag_slug:
+        tag = get_object_or_404(Tag,slug=tag_slug)
+        post_list = post_list.filter(tags__in=[tag])
     # Pagination with 3 posts per page
     paginator = Paginator(post_list, 3)
     page_number = request.GET.get('page', 1)
@@ -23,7 +29,7 @@ def post_list(request):#takes the request object as the only parameter.This para
         posts = paginator.page(paginator.num_pages)
     
     
-    return render(request, 'post/list.html', {'posts': posts})#renders request object,template path,context variables in the given template
+    return render(request, 'post/list.html', {'posts': posts,'tag': tag})#renders request object,template path,context variables in the given template
 
 def post_detail(request, post, year, month, day,):
     post = get_object_or_404(Post, status=Post.Status.PUBLISHED,
@@ -35,7 +41,13 @@ def post_detail(request, post, year, month, day,):
     comments = post.comments.filter(active=True)
     #form for users to comment
     form = CommentForm()
-    return render(request,'post/detail.html', {'post': post , 'comments':comments, 'form':form})  
+    #form for users to comment
+    post_tags_ids = post.tags.values_list('id', flat=True)
+    similar_posts = Post.published.filter(tags__in=post_tags_ids)\
+                                .exclude(id=post.id)
+    similar_posts = similar_posts.annotate(same_tags=Count('tags'))\
+                                 .order_by('-same_tags','-publish')[:4]
+    return render(request,'post/detail.html', {'post': post , 'comments':comments, 'form':form, 'similar_posts': similar_posts})  
 
 class PostListView(ListView):
     #Alternative post list view
