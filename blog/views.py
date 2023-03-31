@@ -70,6 +70,7 @@ def post_share(request, post_id):
             # ...send email
             post_url = request.build_absolute_uri(
                 post.get_absolute_url())
+            #string manipulation(formating)
             subject = f"{cd['name']} recommends you read " \
                       f"{post.title}"
             message = f"Read {post.title} at {post_url}\n\n" \
